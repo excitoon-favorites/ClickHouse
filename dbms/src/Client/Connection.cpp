@@ -8,7 +8,7 @@
 #include <DB/Common/Exception.h>
 
 #include <DB/IO/CompressedReadBuffer.h>
-#include <DB/IO/CompressedWriteBuffer.h>
+#include <DB/IO/ParallelCompressedWriteBuffer.h>
 #include <DB/IO/ReadBufferFromPocoSocket.h>
 #include <DB/IO/WriteBufferFromPocoSocket.h>
 #include <DB/IO/ReadHelpers.h>
@@ -357,7 +357,8 @@ void Connection::sendData(const Block & block, const String & name)
 	if (!block_out)
 	{
 		if (compression == Protocol::Compression::Enable)
-			maybe_compressed_out = std::make_shared<CompressedWriteBuffer>(*out, network_compression_method);
+			maybe_compressed_out = std::make_shared<ParallelCompressedWriteBuffer>(*out, ParallelCompressedWriteBuffer::WRITE_BUFFER_DEFAULT_MAX_WORKERS,
+				network_compression_method);
 		else
 			maybe_compressed_out = out;
 

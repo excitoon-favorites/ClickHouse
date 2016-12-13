@@ -18,7 +18,7 @@ namespace DB
 
 class CompressedWriteBuffer : public BufferWithOwnMemory<WriteBuffer>
 {
-private:
+protected:
 	WriteBuffer & out;
 	CompressionMethod method;
 
@@ -34,6 +34,7 @@ private:
 #endif
 
 	void nextImpl() override;
+	void compress(Position begin, size_t size, PODArray<char> & result) const;
 
 public:
 	CompressedWriteBuffer(
@@ -42,20 +43,20 @@ public:
 		size_t buf_size = DBMS_DEFAULT_BUFFER_SIZE);
 
 	/// Объём сжатых данных
-	size_t getCompressedBytes()
+	virtual size_t getCompressedBytes()
 	{
 		nextIfAtEnd();
 		return out.count();
 	}
 
 	/// Сколько несжатых байт было записано в буфер
-	size_t getUncompressedBytes()
+	virtual size_t getUncompressedBytes()
 	{
 		return count();
 	}
 
 	/// Сколько байт находится в буфере (ещё не сжато)
-	size_t getRemainingBytes()
+	virtual size_t getRemainingBytes()
 	{
 		nextIfAtEnd();
 		return offset();

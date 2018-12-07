@@ -23,6 +23,10 @@ add_library(cctz ${LINK_MODE}
     ${LIBRARY_DIR}/include/cctz/civil_time_detail.h
     ${LIBRARY_DIR}/include/cctz/civil_time.h)
 
+if (WIN32)
+    target_compile_definitions (cctz PRIVATE HAS_STRPTIME=0)
+endif ()
+
 if (CMAKE_SYSTEM MATCHES "FreeBSD")
     # yes, need linux, because bsd check inside linux in time_zone_libc.cc:24
     target_compile_definitions (cctz PRIVATE __USE_BSD linux _XOPEN_SOURCE=600)

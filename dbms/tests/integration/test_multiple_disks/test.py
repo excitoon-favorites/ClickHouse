@@ -571,7 +571,7 @@ def test_concurrent_alter_move(start_cluster, name, engine):
             tasks.append(p.apply_async(optimize_table, (100,)))
 
         for task in tasks:
-            task.get(timeout=60)
+            task.get(timeout=120)
 
         assert node1.query("SELECT 1") == "1\n"
         assert node1.query("SELECT COUNT() FROM {}".format(name)) == "500\n"
@@ -620,7 +620,7 @@ def test_concurrent_alter_move_and_drop(start_cluster, name, engine):
             tasks.append(p.apply_async(alter_drop, (100,)))
 
         for task in tasks:
-            task.get(timeout=60)
+            task.get(timeout=120)
 
         assert node1.query("SELECT 1") == "1\n"
 
@@ -717,7 +717,7 @@ def test_concurrent_alter_modify(start_cluster, name, engine):
             tasks.append(p.apply_async(alter_modify, (100,)))
 
         for task in tasks:
-            task.get(timeout=60)
+            task.get(timeout=240)
 
         assert node1.query("SELECT 1") == "1\n"
         assert node1.query("SELECT COUNT() FROM {}".format(name)) == "100\n"
@@ -755,7 +755,7 @@ def test_simple_replication_and_moves(start_cluster):
         tasks.append(p.apply_async(optimize, (20,)))
 
         for task in tasks:
-            task.get(timeout=60)
+            task.get(timeout=120)
 
         node1.query("SYSTEM SYNC REPLICA replicated_table_for_moves", timeout=5)
         node2.query("SYSTEM SYNC REPLICA replicated_table_for_moves", timeout=5)

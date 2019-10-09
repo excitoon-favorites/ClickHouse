@@ -371,4 +371,11 @@ protected:
 };
 
 
+class ParserTTLExpressionList : public IParserBase
+{
+protected:
+    const char * getName() const { return "ttl expression"; }
+    bool parseImpl(Pos & pos, ASTPtr & node, Expected & expected);
+};
+
 }

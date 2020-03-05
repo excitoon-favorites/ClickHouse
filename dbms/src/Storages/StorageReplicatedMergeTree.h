@@ -437,6 +437,7 @@ private:
         const MergeTreeDataPartType & merged_part_type,
         bool deduplicate,
         bool force_ttl,
+        bool force_recalculate_move_ttl,
         ReplicatedMergeTreeLogEntryData * out_log_entry = nullptr);
 
     bool createLogEntryToMutatePart(const IMergeTreeDataPart & part, Int64 mutation_version, int alter_version);

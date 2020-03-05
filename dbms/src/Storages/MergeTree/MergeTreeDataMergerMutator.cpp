@@ -564,7 +564,8 @@ public:
 /// parts should be sorted.
 MergeTreeData::MutableDataPartPtr MergeTreeDataMergerMutator::mergePartsToTemporaryPart(
     const FutureMergedMutatedPart & future_part, MergeList::Entry & merge_entry, TableStructureReadLockHolder &,
-    time_t time_of_merge, const ReservationPtr & space_reservation, bool deduplicate, bool force_ttl)
+    time_t time_of_merge, const ReservationPtr & space_reservation, bool deduplicate, bool force_ttl,
+    bool force_recalculate_move_ttl)
 {
     static const String TMP_PREFIX = "tmp_merge_";
 
@@ -768,6 +769,9 @@ MergeTreeData::MutableDataPartPtr MergeTreeDataMergerMutator::mergePartsToTempor
 
     if (need_remove_expired_values)
         merged_stream = std::make_shared<TTLBlockInputStream>(merged_stream, data, new_data_part, time_of_merge, force_ttl);
+
+    if (need_remove_expired_values || force_recalculate_move_ttl)
+        merged_stream = std::make_shared<RecalculateMoveTTLBlockInputStream>(merged_stream, data, new_data_part);
 
     MergedBlockOutputStream to{
         new_data_part,

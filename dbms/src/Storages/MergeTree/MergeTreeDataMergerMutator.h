@@ -108,7 +108,7 @@ public:
     MergeTreeData::MutableDataPartPtr mergePartsToTemporaryPart(
         const FutureMergedMutatedPart & future_part,
         MergeListEntry & merge_entry, TableStructureReadLockHolder & table_lock_holder, time_t time_of_merge,
-        const ReservationPtr & disk_reservation, bool deduplication, bool force_ttl);
+        const ReservationPtr & disk_reservation, bool deduplication, bool force_ttl, bool force_recalculate_move_ttl);
 
     /// Mutate a single data part with the specified commands. Will create and return a temporary part.
     MergeTreeData::MutableDataPartPtr mutatePartToTemporaryPart(

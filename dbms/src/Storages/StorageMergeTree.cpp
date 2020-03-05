@@ -662,10 +662,11 @@ bool StorageMergeTree::merge(
         /// Force filter by TTL in 'OPTIMIZE ... FINAL' query to remove expired values from old parts
         ///  without TTL infos or with outdated TTL infos, e.g. after 'ALTER ... MODIFY TTL' query.
         bool force_ttl = (final && hasAnyTTL());
+        bool force_recalculate_move_ttl = final;
 
         new_part = merger_mutator.mergePartsToTemporaryPart(
             future_part, *merge_entry, table_lock_holder, time(nullptr),
-            merging_tagger->reserved_space, deduplicate, force_ttl);
+            merging_tagger->reserved_space, deduplicate, force_ttl, force_recalculate_move_ttl);
         merger_mutator.renameMergedTemporaryPart(new_part, future_part.parts, nullptr);
         removeEmptyColumnsFromPart(new_part);
 

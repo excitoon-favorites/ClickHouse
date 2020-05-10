@@ -1,6 +1,8 @@
 from contextlib import contextmanager
 
+import threading
 import time
+
 import pytest
 
 from helpers.cluster import ClickHouseCluster
@@ -54,3 +56,65 @@ def test_mutations_with_truncate_table(started_cluster):
     instance_test_mutations.query("TRUNCATE TABLE test_mutations_with_ast_elements")
     assert instance_test_mutations.query("SELECT COUNT() FROM system.mutations WHERE table = 'test_mutations_with_ast_elements'").rstrip() == '0'
 
+
+def test_lots_of_mutations(started_cluster):
+    name = 'test_lots_of_mutations'
+
+    instance_test_mutations.query('''CREATE TABLE {name} (p UInt64, b UInt64) ENGINE = MergeTree() ORDER BY tuple() PARTITION BY p'''.format(name=name))
+
+    try:
+        parts = 45
+        partitions_per_insert = 100
+        queries = []
+        for i in range(parts):
+            if i % partitions_per_insert == 0:
+                queries.append(['''INSERT INTO {name} VALUES'''.format(name=name)])
+            queries[-1].append('({i}, 1)'.format(i=i))
+        jobs = []
+        for query in queries:
+            jobs.append(threading.Thread(target=instance_test_mutations.query, args=(' '.join(query),)))
+
+        for job in jobs:
+            job.start()
+
+        for job in jobs:
+            job.join()
+
+        def spam_parts(t):
+            while time.time() < t:
+                instance_test_mutations.query('''SELECT * FROM system.parts WHERE name = '{name}' '''.format(name=name))
+
+        start_time = time.time()
+        finish = start_time + 150
+
+        jobs = []
+        for n in range(50):
+        # 50, 10 -- 95m
+        # 50, 25 -- 30m
+        # 75, 50 -- 30m
+        # 50, 50 -- 23m
+        # 45, 50 -- 6m, 16m
+        # 35, 50 -- 91m
+        # 30, 50 -- 79m
+        # 25, 50 -- 13m
+        # 20, 50 -- 37m
+        # 10, 50 -- 95m
+        # 45, 50, 28631f461ed85b5d9d255fd96381a8bd20ea47f2 -- 431m
+            jobs.append(threading.Thread(target=spam_parts, args=(finish,)))
+
+        for job in jobs:
+            job.start()
+
+        attempt = 0
+        while time.time() < finish:
+            attempt += 1
+            instance_test_mutations.query('''ALTER TABLE {name} UPDATE b=b WHERE p=1 OR 'attempt {attempt}' == 'time {time}' SETTINGS mutations_sync=1'''.format(attempt=attempt, time=time.time()-start_time, name=name), timeout=60)
+
+        for job in jobs:
+            job.join()
+
+    finally:
+        try:
+            instance_test_mutations.query('''DROP TABLE {name}'''.format(name=name))
+        except:
+            pass

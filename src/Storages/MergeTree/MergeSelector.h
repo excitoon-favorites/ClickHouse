@@ -45,6 +45,8 @@ public:
 
         /// Maximum time, when we will need to drop this part altogether because all rows in it are expired.
         time_t max_ttl;
+
+        bool can_participate_in_merges = true;
     };
 
     /// Parts are belong to partitions. Only parts within same partition could be merged.

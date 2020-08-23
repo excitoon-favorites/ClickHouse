@@ -504,6 +504,7 @@ namespace ErrorCodes
     extern const int ILLEGAL_MYSQL_VARIABLE = 537;
     extern const int MYSQL_SYNTAX_ERROR = 538;
     extern const int INVALID_RAID_TYPE = 539;
+    extern const int UNKNOWN_VOLUME = 540;
 
     extern const int KEEPER_EXCEPTION = 999;
     extern const int POCO_EXCEPTION = 1000;

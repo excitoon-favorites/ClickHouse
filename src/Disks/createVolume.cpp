@@ -1,6 +1,8 @@
 #include "createVolume.h"
 
+#include <Common/quoteString.h>
 #include <Disks/SingleDiskVolume.h>
+#include <Disks/MultiDiskVolume.h>
 #include <Disks/VolumeJBOD.h>
 #include <Disks/VolumeRAID1.h>
 
@@ -15,18 +17,18 @@ namespace ErrorCodes
     extern const int INVALID_RAID_TYPE;
 }
 
-VolumePtr createVolumeFromReservation(const ReservationPtr & reservation, VolumePtr other_volume)
+VolumePtr createVolumeFromReservation(const ReservationPtr & reservation, VolumePtr original_volume)
 {
-    if (other_volume->getType() == VolumeType::JBOD || other_volume->getType() == VolumeType::SINGLE_DISK)
+    if (original_volume->getType() == VolumeType::JBOD || original_volume->getType() == VolumeType::SINGLE_DISK)
     {
         /// Since reservation on JBOD chooses one of disks and makes reservation there, volume
         /// for such type of reservation will be with one disk.
-        return std::make_shared<SingleDiskVolume>(other_volume->getName(), reservation->getDisk(), other_volume->max_data_part_size);
+        return std::make_shared<SingleDiskVolume>(original_volume->getName(), reservation->getDisk());
     }
-    if (other_volume->getType() == VolumeType::RAID1)
+    if (original_volume->getType() == VolumeType::RAID1 || original_volume->getType() == VolumeType::MULTI_DISK)
     {
-        auto volume = std::dynamic_pointer_cast<VolumeRAID1>(other_volume);
-        return std::make_shared<VolumeRAID1>(volume->getName(), reservation->getDisks(), volume->max_data_part_size, volume->are_merges_allowed);
+        auto volume = std::dynamic_pointer_cast<VolumeRAID1>(original_volume);
+        return std::make_shared<MultiDiskVolume>(volume->getName(), reservation->getDisks());
     }
     return nullptr;
 }
@@ -58,11 +60,11 @@ VolumePtr updateVolumeFromConfig(
     {
         VolumeJBODPtr volume_jbod = std::dynamic_pointer_cast<VolumeJBOD>(volume);
         if (!volume_jbod)
-            throw Exception("Invalid RAID type '" + raid_type + "', shall be JBOD", ErrorCodes::INVALID_RAID_TYPE);
+            throw Exception("Invalid RAID type " + backQuote(raid_type) + ", shall be JBOD", ErrorCodes::INVALID_RAID_TYPE);
 
         return std::make_shared<VolumeJBOD>(*volume_jbod, config, config_prefix, disk_selector);
     }
-    throw Exception("Unknown RAID type '" + raid_type + "'", ErrorCodes::UNKNOWN_RAID_TYPE);
+    throw Exception("Unknown RAID type " + backQuote(raid_type), ErrorCodes::UNKNOWN_RAID_TYPE);
 }
 
 }

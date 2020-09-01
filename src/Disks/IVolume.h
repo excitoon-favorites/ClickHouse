@@ -13,6 +13,7 @@ enum class VolumeType
     JBOD,
     RAID1,
     SINGLE_DISK,
+    MULTI_DISK,
     UNKNOWN
 };
 
@@ -36,10 +37,9 @@ using Volumes = std::vector<VolumePtr>;
 class IVolume : public Space
 {
 public:
-    IVolume(String name_, Disks disks_, size_t max_data_part_size_ = 0)
+    IVolume(String name_, Disks disks_)
         : disks(std::move(disks_))
         , name(name_)
-        , max_data_part_size(max_data_part_size_)
     {
     }
 
@@ -64,36 +64,17 @@ public:
     const Disks & getDisks() const { return disks; }
 
     /// Returns effective value of whether merges are allowed on this volume (true) or not (false).
-    virtual bool areMergesAllowed() const { return true; }
+    virtual bool areMergesAllowed() const = 0;
 
     /// User setting for enabling and disabling merges on volume.
-    virtual void setAllowMergesUserOverride(bool /*allow*/) {}
+    virtual void setAllowMergesUserOverride(bool /*allow*/) = 0;
+
+    /// Max size of reservation, zero means unlimited size
+    virtual size_t getMaxDataPartSize() const = 0;
 
 protected:
     Disks disks;
     const String name;
-
-public:
-    /// Max size of reservation, zero means unlimited size
-    UInt64 max_data_part_size = 0;
-};
-
-/// Reservation for multiple disks at once. Can be used in RAID1 implementation.
-class MultiDiskReservation : public IReservation
-{
-public:
-    MultiDiskReservation(Reservations & reservations, UInt64 size);
-
-    UInt64 getSize() const override { return size; }
-
-    DiskPtr getDisk(size_t i) const override { return reservations[i]->getDisk(); }
-
-    Disks getDisks() const override;
-
-    void update(UInt64 new_size) override;
-private:
-    Reservations reservations;
-    UInt64 size;
 };
 
 }

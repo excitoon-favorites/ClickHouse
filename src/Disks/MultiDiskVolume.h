@@ -1,14 +1,14 @@
 #pragma once
 
-#include <Disks/IVolume.h>
+#include <Disks/VolumeRAID1.h>
 
 namespace DB
 {
 
-class SingleDiskVolume : public IVolume
+class MultiDiskVolume : public IVolume
 {
 public:
-    SingleDiskVolume(const String & name_, DiskPtr disk);
+    MultiDiskVolume(const String & name_, Disks disks_);
 
     ReservationPtr reserve(UInt64 bytes) override;
 
@@ -21,7 +21,7 @@ public:
     size_t getMaxDataPartSize() const override;
 };
 
-using VolumeSingleDiskPtr = std::shared_ptr<SingleDiskVolume>;
-using VolumesSingleDiskPtr = std::vector<VolumeSingleDiskPtr>;
+using VolumeMultiDiskPtr = std::shared_ptr<MultiDiskVolume>;
+using VolumesMultiDiskPtr = std::vector<VolumeMultiDiskPtr>;
 
 }

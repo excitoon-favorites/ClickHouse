@@ -15,7 +15,7 @@ using VolumeRAID1Ptr = std::shared_ptr<VolumeRAID1>;
 ///
 /// NOTE: Just interface implementation, doesn't used in codebase,
 /// also not available for user.
-class VolumeRAID1 : public VolumeJBOD
+class VolumeRAID1 : public VolumeJBOD /// FIXME VolumeRAID1 is not VolumeJBOD.
 {
 public:
     VolumeRAID1(String name_, Disks disks_, UInt64 max_data_part_size_, bool are_merges_allowed_in_config_)

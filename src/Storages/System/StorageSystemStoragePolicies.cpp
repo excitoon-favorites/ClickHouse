@@ -70,7 +70,7 @@ Pipe StorageSystemStoragePolicies::read(
                 disks.push_back(disk_ptr->getName());
             col_disks->insert(disks);
             col_volume_type->insert(volumeTypeToString(volumes[i]->getType()));
-            col_max_part_size->insert(volumes[i]->max_data_part_size);
+            col_max_part_size->insert(volumes[i]->getMaxDataPartSize());
             col_move_factor->insert(policy_ptr->getMoveFactor());
             col_disable_merges->insert(volumes[i]->areMergesAllowed() ? 0 : 1);
         }

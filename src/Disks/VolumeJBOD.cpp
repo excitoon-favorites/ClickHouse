@@ -109,4 +109,9 @@ void VolumeJBOD::setAllowMergesUserOverride(bool allow)
     are_merges_allowed_user_override = allow;
 }
 
+size_t VolumeJBOD::getMaxDataPartSize() const
+{
+    return max_data_part_size;
+}
+
 }

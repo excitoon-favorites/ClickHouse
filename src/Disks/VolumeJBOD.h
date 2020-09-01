@@ -23,8 +23,9 @@ class VolumeJBOD : public IVolume
 {
 public:
     VolumeJBOD(String name_, Disks disks_, UInt64 max_data_part_size_, bool are_merges_allowed_)
-        : IVolume(name_, disks_, max_data_part_size_)
+        : IVolume(name_, disks_)
         , are_merges_allowed(are_merges_allowed_)
+        , max_data_part_size(max_data_part_size_)
     {
     }
 
@@ -59,14 +60,15 @@ public:
 
     void setAllowMergesUserOverride(bool allow) override;
 
-    /// True if parts on this volume participate in merges according to configuration.
-    bool are_merges_allowed = true;
+    size_t getMaxDataPartSize() const override;
 
     /// True if parts on this volume participate in merges according to START/STOP MERGES ON VOLUME.
     std::optional<bool> are_merges_allowed_user_override;
 
 private:
     mutable std::atomic<size_t> last_used = 0;
+    bool are_merges_allowed = true;
+    size_t max_data_part_size = 0;
 };
 
 }

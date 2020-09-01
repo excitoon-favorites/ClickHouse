@@ -13,6 +13,8 @@ namespace DB
 namespace ErrorCodes
 {
     extern const int NOT_IMPLEMENTED;
+    extern const int INCONSISTENT_RESERVATIONS;
+    extern const int NO_RESERVATIONS_PROVIDED;
 }
 
 bool IDisk::isDirectoryEmpty(const String & path)
@@ -73,6 +75,47 @@ void IDisk::copy(const String & from_path, const std::shared_ptr<IDisk> & to_dis
 void IDisk::truncateFile(const String &, size_t)
 {
     throw Exception(ErrorCodes::NOT_IMPLEMENTED, "Truncate operation is not implemented for disk of type {}", getType());
+}
+
+
+MultiDiskReservation::MultiDiskReservation(Reservations & reservations_, UInt64 size_)
+    : reservations(std::move(reservations_))
+    , size(size_)
+{
+    if (reservations.empty())
+    {
+        throw Exception("At least one reservation must be provided to MultiDiskReservation", ErrorCodes::NO_RESERVATIONS_PROVIDED);
+    }
+
+    for (auto & reservation : reservations)
+    {
+        if (reservation->getSize() != size_)
+        {
+            throw Exception("Reservations must have same size", ErrorCodes::INCONSISTENT_RESERVATIONS);
+        }
+    }
+}
+
+
+Disks MultiDiskReservation::getDisks() const
+{
+    Disks res;
+    res.reserve(reservations.size());
+    for (const auto & reservation : reservations)
+    {
+        res.push_back(reservation->getDisk());
+    }
+    return res;
+}
+
+
+void MultiDiskReservation::update(UInt64 new_size)
+{
+    for (auto & reservation : reservations)
+    {
+        reservation->update(new_size);
+    }
+    size = new_size;
 }
 
 }

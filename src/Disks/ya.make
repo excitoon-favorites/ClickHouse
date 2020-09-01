@@ -15,6 +15,7 @@ SRCS(
     DiskSelector.cpp
     IDisk.cpp
     IVolume.cpp
+    MultiDiskVolume.cpp
     registerDisks.cpp
     SingleDiskVolume.cpp
     StoragePolicy.cpp

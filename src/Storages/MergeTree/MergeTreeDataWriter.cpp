@@ -236,13 +236,15 @@ MergeTreeData::MutableDataPartPtr MergeTreeDataWriter::writeTempPart(BlockWithPa
 
     NamesAndTypesList columns = metadata_snapshot->getColumns().getAllPhysical().filter(block.getNames());
     ReservationPtr reservation = data.reserveSpacePreferringTTLRules(expected_size, move_ttl_infos, time(nullptr));
-    VolumePtr volume = data.getStoragePolicy()->getVolume(0);
+    StoragePolicyPtr storage_policy = data.getStoragePolicy();
+    size_t original_volume_index = storage_policy->getVolumeIndexByDisk(reservation->getDisk());
+    VolumePtr original_volume = storage_policy->getVolume(original_volume_index);
 
     auto new_data_part = data.createPart(
         part_name,
         data.choosePartType(expected_size, block.rows()),
         new_part_info,
-        createVolumeFromReservation(reservation, volume),
+        createVolumeFromReservation(reservation, original_volume),
         TMP_PREFIX + part_name);
 
     new_data_part->setColumns(columns);

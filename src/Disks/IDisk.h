@@ -236,6 +236,26 @@ public:
     virtual ~IReservation() = default;
 };
 
+
+/// Reservation for multiple disks at once. Can be used in RAID1 implementation.
+class MultiDiskReservation : public IReservation
+{
+public:
+    MultiDiskReservation(Reservations & reservations, UInt64 size);
+
+    UInt64 getSize() const override { return size; }
+
+    DiskPtr getDisk(size_t i) const override { return reservations[i]->getDisk(); }
+
+    Disks getDisks() const override;
+
+    void update(UInt64 new_size) override;
+private:
+    Reservations reservations;
+    UInt64 size;
+};
+
+
 /// Return full path to a file on disk.
 inline String fullPath(const DiskPtr & disk, const String & path)
 {
@@ -253,4 +273,5 @@ inline String fileName(const String & path)
 {
     return Poco::Path(path).getFileName();
 }
+
 }

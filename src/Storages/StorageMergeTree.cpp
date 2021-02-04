@@ -970,6 +970,29 @@ std::shared_ptr<StorageMergeTree::MergeMutateSelectedEntry> StorageMergeTree::se
             commands.insert(commands.end(), it->second.commands.begin(), it->second.commands.end());
         }
 
+        bool affected = false;
+        for (const auto & command : commands)
+        {
+            if (command.partition == nullptr)
+            {
+                affected = true;
+                break;
+            }
+
+            const String partition_id = part->storage.getPartitionIDFromQuery(command.partition, global_context);
+            if (partition_id == part->info.partition_id)
+            {
+                affected = true;
+                break;
+            }
+        }
+
+        if (!affected)
+        {
+            /// Shall not create a new part, but will do that later if mutation with higher version appear.
+            continue;
+        }
+
         auto new_part_info = part->info;
         new_part_info.mutation = current_mutations_by_version.rbegin()->first;
 
@@ -1010,10 +1033,13 @@ bool StorageMergeTree::mutateSelectedPart(const StorageMetadataPtr & metadata_sn
             future_part, metadata_snapshot, merge_mutate_entry.commands, *(merge_list_entry),
             time(nullptr), getContext(), merge_mutate_entry.tagger->reserved_space, table_lock_holder);
 
-        renameTempPartAndReplace(new_part);
+        if (new_part)
+        {
+            renameTempPartAndReplace(new_part);
 
-        updateMutationEntriesErrors(future_part, true, "");
-        write_part_log({});
+            updateMutationEntriesErrors(future_part, true, "");
+            write_part_log({});
+        }
     }
     catch (...)
     {

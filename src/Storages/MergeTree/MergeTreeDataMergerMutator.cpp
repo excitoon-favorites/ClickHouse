@@ -1205,6 +1205,7 @@ MergeTreeData::MutableDataPartPtr MergeTreeDataMergerMutator::mutatePartToTempor
 
     CurrentMetrics::Increment num_mutations{CurrentMetrics::PartMutation};
     const auto & source_part = future_part.parts[0];
+
     auto storage_from_source_part = StorageFromMergeTreeDataPart::create(source_part);
 
     auto context_for_reading = Context::createCopy(context);

@@ -271,11 +271,12 @@ public:
         const String & bucket,
         const String & key,
         size_t min_upload_part_size,
-        size_t max_single_part_upload_size)
+        size_t max_single_part_upload_size,
+        size_t multipart_write_thread_pool_size)
         : sample_block(sample_block_)
     {
         write_buf = wrapWriteBufferWithCompressionMethod(
-            std::make_unique<WriteBufferFromS3>(client, bucket, key, min_upload_part_size, max_single_part_upload_size), compression_method, 3);
+            std::make_unique<WriteBufferFromS3>(client, bucket, key, min_upload_part_size, max_single_part_upload_size, multipart_write_thread_pool_size), compression_method, 3);
         writer = FormatFactory::instance().getOutputStreamParallelIfPossible(format, *write_buf, sample_block, context);
     }
 
@@ -355,8 +356,10 @@ StorageS3::StorageS3(
     storage_metadata.setComment(comment);
     setInMemoryMetadata(storage_metadata);
     updateClientAndAuthSettings(context_, client_auth);
-}
 
+    auto settings = context_->getStorageS3Settings().getSettings(uri_.uri.toString());
+    multipart_write_thread_pool_size = settings.multipart_write_thread_pool_size;
+}
 
 Pipe StorageS3::read(
     const Names & column_names,
@@ -433,7 +436,8 @@ BlockOutputStreamPtr StorageS3::write(const ASTPtr & /*query*/, const StorageMet
         client_auth.uri.bucket,
         client_auth.uri.key,
         min_upload_part_size,
-        max_single_part_upload_size);
+        max_single_part_upload_size,
+        multipart_write_thread_pool_size);
 }
 
 

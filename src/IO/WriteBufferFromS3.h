@@ -11,6 +11,8 @@
 #    include <common/logger_useful.h>
 #    include <common/types.h>
 
+#    include <Common/ThreadPool.h>
+
 #    include <IO/BufferWithOwnMemory.h>
 #    include <IO/WriteBuffer.h>
 
@@ -40,6 +42,7 @@ private:
     std::shared_ptr<Aws::S3::S3Client> client_ptr;
     size_t minimum_upload_part_size;
     size_t max_single_part_upload_size;
+
     /// Buffer to accumulate data.
     std::shared_ptr<Aws::StringStream> temporary_buffer;
     size_t last_part_size;
@@ -47,9 +50,11 @@ private:
     /// Upload in S3 is made in parts.
     /// We initiate upload, then upload each part and get ETag as a response, and then finish upload with listing all our parts.
     String multipart_upload_id;
-    std::vector<String> part_tags;
+    std::vector<std::shared_ptr<String>> part_tags;
 
     Poco::Logger * log = &Poco::Logger::get("WriteBufferFromS3");
+
+    std::shared_ptr<ThreadPool> writing_thread_pool;
 
 public:
     explicit WriteBufferFromS3(
@@ -58,6 +63,7 @@ public:
         const String & key_,
         size_t minimum_upload_part_size_,
         size_t max_single_part_upload_size_,
+        size_t thread_pool_size,
         std::optional<std::map<String, String>> object_metadata_ = std::nullopt,
         size_t buffer_size_ = DBMS_DEFAULT_BUFFER_SIZE);
 
@@ -73,6 +79,7 @@ private:
 
     void createMultipartUpload();
     void writePart();
+    void doWritePart(std::shared_ptr<std::stringstream> part_data, size_t part_number, std::shared_ptr<String> output_tag, ThreadGroupStatusPtr thread_group);
     void completeMultipartUpload();
 
     void makeSinglepartUpload();

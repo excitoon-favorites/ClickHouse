@@ -6,6 +6,7 @@ import io
 import random
 import threading
 import time
+import traceback
 
 import helpers.client
 import pytest
@@ -341,7 +342,7 @@ def test_multipart_put(started_cluster, maybe_auth, positive):
     # Minimum size of part is 5 Mb for Minio.
     # See: https://github.com/minio/minio/blob/master/docs/minio-limits.md
     min_part_size_bytes = 5 * 1024 * 1024
-    csv_size_bytes = int(min_part_size_bytes * 1.5)  # To have 2 parts.
+    csv_size_bytes = int(min_part_size_bytes * 9.5) # To have up to 10 parts.
 
     one_line_length = 6  # 3 digits, 2 commas, 1 line separator.
 
@@ -359,14 +360,14 @@ def test_multipart_put(started_cluster, maybe_auth, positive):
         run_query(instance, put_query, stdin=csv_data, settings={'s3_min_upload_part_size': min_part_size_bytes,
                                                                  's3_max_single_part_upload_size': 0})
     except helpers.client.QueryRuntimeException:
-        if positive:
-            raise
+        assert not positive, traceback.format_exc()
+
     else:
         assert positive
 
         # Use proxy access logs to count number of parts uploaded to Minio.
         proxy_logs = started_cluster.get_container_logs("proxy1")  # type: str
-        assert proxy_logs.count("PUT /{}/{}".format(bucket, filename)) >= 2
+        assert 5 < proxy_logs.count("PUT /{}/{}".format(bucket, filename)) <= 10
 
         assert csv_data == get_s3_file_content(started_cluster, bucket, filename)
 

@@ -257,6 +257,7 @@ std::unique_ptr<WriteBufferFromFileBase> DiskS3::writeFile(const String & path, 
         metadata.remote_fs_root_path + s3_path,
         settings->s3_min_upload_part_size,
         settings->s3_max_single_part_upload_size,
+        settings->multipart_write_thread_pool_size,
         std::move(object_metadata),
         buf_size);
 
@@ -311,6 +312,7 @@ void DiskS3::createFileOperationObject(const String & operation_name, UInt64 rev
         remote_fs_root_path + key,
         settings->s3_min_upload_part_size,
         settings->s3_max_single_part_upload_size,
+        settings->multipart_write_thread_pool_size,
         metadata);
 
     buffer.write('0');
@@ -388,7 +390,9 @@ void DiskS3::saveSchemaVersion(const int & version)
         bucket,
         remote_fs_root_path + SCHEMA_VERSION_OBJECT,
         settings->s3_min_upload_part_size,
-        settings->s3_max_single_part_upload_size);
+        settings->s3_max_single_part_upload_size,
+        settings->multipart_write_thread_pool_size
+    );
 
     writeIntText(version, buffer);
     buffer.finalize();
@@ -945,6 +949,7 @@ DiskS3Settings::DiskS3Settings(
     size_t s3_max_single_read_retries_,
     size_t s3_min_upload_part_size_,
     size_t s3_max_single_part_upload_size_,
+    size_t multipart_write_thread_pool_size_,
     size_t min_bytes_for_seek_,
     bool send_metadata_,
     int thread_pool_size_,
@@ -954,6 +959,7 @@ DiskS3Settings::DiskS3Settings(
     , s3_max_single_read_retries(s3_max_single_read_retries_)
     , s3_min_upload_part_size(s3_min_upload_part_size_)
     , s3_max_single_part_upload_size(s3_max_single_part_upload_size_)
+    , multipart_write_thread_pool_size(multipart_write_thread_pool_size_)
     , min_bytes_for_seek(min_bytes_for_seek_)
     , send_metadata(send_metadata_)
     , thread_pool_size(thread_pool_size_)

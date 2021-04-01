@@ -327,15 +327,23 @@ def test_put_get_with_globs(started_cluster):
 
 
 # Test multipart put.
-@pytest.mark.parametrize("maybe_auth,positive", [
-    pytest.param("", True, id="positive"),
-    pytest.param("'wrongid','wrongkey'", False, id="negative"),
-    # ("'minio','minio123',",True), Redirect with credentials not working with nginx.
+@pytest.mark.parametrize("maybe_auth,threaded,positive", [
+    pytest.param("", False, True, id="positive"),
+    pytest.param("", True, True, id="positive_threaded"),
+    # pytest.param("'minio','minio123',", False, True, id="positive_with_auth"), Redirect with credentials not working with nginx.
+    pytest.param("'wrongid','wrongkey',", False, False, id="negative"),
 ])
-def test_multipart_put(started_cluster, maybe_auth, positive):
+def test_multipart_put(started_cluster, maybe_auth, threaded, positive):
     # type: (ClickHouseCluster) -> None
 
     bucket = started_cluster.minio_bucket if not maybe_auth else started_cluster.minio_restricted_bucket
+    filename = "test_multipart.csv"
+    host = started_cluster.minio_redirect_host
+    port = started_cluster.minio_redirect_port
+    if threaded:
+        bucket = started_cluster.minio_bucket
+        filename = "threaded/test_multipart.csv"
+
     instance = started_cluster.instances["dummy"]  # type: ClickHouseInstance
     table_format = "column1 UInt32, column2 UInt32, column3 UInt32"
 
@@ -352,9 +360,7 @@ def test_multipart_put(started_cluster, maybe_auth, positive):
 
     assert len(csv_data) > min_part_size_bytes
 
-    filename = "test_multipart.csv"
-    put_query = "insert into table function s3('http://{}:{}/{}/{}', {}'CSV', '{}') format CSV".format(
-        started_cluster.minio_redirect_host, started_cluster.minio_redirect_port, bucket, filename, maybe_auth, table_format)
+    put_query = f"insert into table function s3('http://{host}:{port}/{bucket}/{filename}', {maybe_auth}'CSV', '{table_format}') format CSV"
 
     try:
         run_query(instance, put_query, stdin=csv_data, settings={'s3_min_upload_part_size': min_part_size_bytes,

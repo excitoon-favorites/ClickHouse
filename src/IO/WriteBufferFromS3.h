@@ -79,7 +79,7 @@ private:
 
     void createMultipartUpload();
     void writePart();
-    void doWritePart(std::shared_ptr<std::stringstream> part_data, size_t part_number, std::shared_ptr<String> output_tag, ThreadGroupStatusPtr thread_group);
+    void doWritePart(std::shared_ptr<Aws::StringStream> part_data, size_t part_number, std::shared_ptr<String> output_tag, ThreadGroupStatusPtr thread_group);
     void completeMultipartUpload();
 
     void makeSinglepartUpload();

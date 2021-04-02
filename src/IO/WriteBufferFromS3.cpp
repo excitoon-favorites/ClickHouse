@@ -158,7 +158,7 @@ void WriteBufferFromS3::writePart()
         LOG_WARNING(log, "Maximum part number in S3 protocol has reached (too many parts). Server may not accept this whole upload.");
     }
 
-    auto part_data = std::make_shared<std::stringstream>();
+    auto part_data = std::make_shared<Aws::StringStream>();
     temporary_buffer.swap(part_data);
 
     size_t part_number = part_tags.size() + 1;
@@ -176,7 +176,7 @@ void WriteBufferFromS3::writePart()
         write_job();
 }
 
-void WriteBufferFromS3::doWritePart(std::shared_ptr<std::stringstream> part_data, size_t part_number, std::shared_ptr<String> output_tag, ThreadGroupStatusPtr thread_group)
+void WriteBufferFromS3::doWritePart(std::shared_ptr<Aws::StringStream> part_data, size_t part_number, std::shared_ptr<String> output_tag, ThreadGroupStatusPtr thread_group)
 {
     if (writing_thread_pool)
     {

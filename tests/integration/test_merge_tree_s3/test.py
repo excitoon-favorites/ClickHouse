@@ -50,6 +50,7 @@ def cluster():
         cluster.add_instance("node",
                              main_configs=["configs/config.d/storage_conf.xml",
                                            "configs/config.d/bg_processing_pool_conf.xml"],
+                             user_configs=["configs/users.d/s3_min_upload_part_size.xml"],
                              with_minio=True)
         logging.info("Starting cluster...")
         cluster.start()
@@ -77,11 +78,11 @@ def generate_values(date_str, count, sign=1):
     return ",".join(["('{}',{},'{}')".format(x, y, z) for x, y, z in data])
 
 
-def create_table(cluster, table_name, additional_settings=None):
+def create_table(cluster, name, policy, additional_settings=None):
     node = cluster.instances["node"]
 
-    create_table_statement = """
-        CREATE TABLE {} (
+    create_table_statement = f"""
+        CREATE TABLE {name} (
             dt Date,
             id Int64,
             data String,
@@ -90,10 +91,10 @@ def create_table(cluster, table_name, additional_settings=None):
         PARTITION BY dt
         ORDER BY (dt, id)
         SETTINGS
-            storage_policy='s3',
+            storage_policy='{policy}',
             old_parts_lifetime=0,
             index_granularity=512
-        """.format(table_name)
+        """
 
     if additional_settings:
         create_table_statement += ","
@@ -129,29 +130,34 @@ def drop_table(cluster):
 
 
 @pytest.mark.parametrize(
-    "min_rows_for_wide_part,files_per_part",
+    "min_rows_for_wide_part,n,policy,files_per_part",
     [
-        (0, FILES_OVERHEAD_PER_PART_WIDE),
-        (8192, FILES_OVERHEAD_PER_PART_COMPACT)
+        (0, 4096, "s3", FILES_OVERHEAD_PER_PART_WIDE),
+        (8192, 4096, "s3", FILES_OVERHEAD_PER_PART_COMPACT),
+        (0, 1048576, "s3", FILES_OVERHEAD_PER_PART_WIDE),
+        (1048576*2, 1048576, "s3", FILES_OVERHEAD_PER_PART_COMPACT),
+        (0, 1048576, "s3_parallel_writes", FILES_OVERHEAD_PER_PART_WIDE),
+        (1048576*2, 1048576, "s3_parallel_writes", FILES_OVERHEAD_PER_PART_COMPACT)
     ]
 )
-def test_simple_insert_select(cluster, min_rows_for_wide_part, files_per_part):
-    create_table(cluster, "s3_test", additional_settings="min_rows_for_wide_part={}".format(min_rows_for_wide_part))
+def test_simple_insert_select(cluster, min_rows_for_wide_part, n, policy, files_per_part):
+    create_table(cluster, "s3_test", policy, additional_settings="min_rows_for_wide_part={}".format(min_rows_for_wide_part))
 
     node = cluster.instances["node"]
     minio = cluster.minio_client
 
-    values1 = generate_values('2020-01-03', 4096)
-    node.query("INSERT INTO s3_test VALUES {}".format(values1))
+    values1 = generate_values('2020-01-03', n)
+    node.query("INSERT INTO s3_test VALUES {}".format(values1), settings={'max_insert_block_size': n*100})
     assert node.query("SELECT * FROM s3_test order by dt, id FORMAT Values") == values1
+    print([o.object_name for o in minio.list_objects(cluster.minio_bucket, 'data/')])
     assert len(list(minio.list_objects(cluster.minio_bucket, 'data/'))) == FILES_OVERHEAD + files_per_part
 
-    values2 = generate_values('2020-01-04', 4096)
-    node.query("INSERT INTO s3_test VALUES {}".format(values2))
+    values2 = generate_values('2020-01-04', n)
+    node.query("INSERT INTO s3_test VALUES {}".format(values2), settings={'max_insert_block_size': n*100})
     assert node.query("SELECT * FROM s3_test ORDER BY dt, id FORMAT Values") == values1 + "," + values2
     assert len(list(minio.list_objects(cluster.minio_bucket, 'data/'))) == FILES_OVERHEAD + files_per_part * 2
 
-    assert node.query("SELECT count(*) FROM s3_test where id = 1 FORMAT Values") == "(2)"
+    assert node.query("SELECT count(*) FROM s3_test WHERE id = 1 FORMAT Values") == "(2)"
 
 
 @pytest.mark.parametrize(
@@ -164,7 +170,7 @@ def test_insert_same_partition_and_merge(cluster, merge_vertical):
             vertical_merge_algorithm_min_rows_to_activate=0,
             vertical_merge_algorithm_min_columns_to_activate=0
         """
-    create_table(cluster, "s3_test", additional_settings=settings)
+    create_table(cluster, "s3_test", "s3", additional_settings=settings)
 
     node = cluster.instances["node"]
     minio = cluster.minio_client
@@ -200,7 +206,7 @@ def test_insert_same_partition_and_merge(cluster, merge_vertical):
 
 
 def test_alter_table_columns(cluster):
-    create_table(cluster, "s3_test")
+    create_table(cluster, "s3_test", "s3")
 
     node = cluster.instances["node"]
     minio = cluster.minio_client
@@ -229,7 +235,7 @@ def test_alter_table_columns(cluster):
 
 
 def test_attach_detach_partition(cluster):
-    create_table(cluster, "s3_test")
+    create_table(cluster, "s3_test", "s3")
 
     node = cluster.instances["node"]
     minio = cluster.minio_client
@@ -261,7 +267,7 @@ def test_attach_detach_partition(cluster):
 
 
 def test_move_partition_to_another_disk(cluster):
-    create_table(cluster, "s3_test")
+    create_table(cluster, "s3_test", "s3")
 
     node = cluster.instances["node"]
     minio = cluster.minio_client
@@ -283,7 +289,7 @@ def test_move_partition_to_another_disk(cluster):
 
 
 def test_table_manipulations(cluster):
-    create_table(cluster, "s3_test")
+    create_table(cluster, "s3_test", "s3")
 
     node = cluster.instances["node"]
     minio = cluster.minio_client
@@ -311,7 +317,7 @@ def test_table_manipulations(cluster):
 
 
 def test_move_replace_partition_to_another_table(cluster):
-    create_table(cluster, "s3_test")
+    create_table(cluster, "s3_test", "s3")
 
     node = cluster.instances["node"]
     minio = cluster.minio_client
@@ -325,7 +331,7 @@ def test_move_replace_partition_to_another_table(cluster):
     assert len(
         list(minio.list_objects(cluster.minio_bucket, 'data/'))) == FILES_OVERHEAD + FILES_OVERHEAD_PER_PART_WIDE * 4
 
-    create_table(cluster, "s3_clone")
+    create_table(cluster, "s3_clone", "s3")
 
     node.query("ALTER TABLE s3_test MOVE PARTITION '2020-01-03' TO TABLE s3_clone")
     node.query("ALTER TABLE s3_test MOVE PARTITION '2020-01-05' TO TABLE s3_clone")
@@ -377,7 +383,7 @@ def test_move_replace_partition_to_another_table(cluster):
 
 
 def test_freeze_unfreeze(cluster):
-    create_table(cluster, "s3_test")
+    create_table(cluster, "s3_test", "s3")
 
     node = cluster.instances["node"]
     minio = cluster.minio_client

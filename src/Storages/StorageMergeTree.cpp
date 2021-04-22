@@ -981,7 +981,7 @@ std::shared_ptr<StorageMergeTree::MergeMutateSelectedEntry> StorageMergeTree::se
                 break;
             }
 
-            const String partition_id = part->storage.getPartitionIDFromQuery(command.partition, global_context);
+            const String partition_id = part->storage.getPartitionIDFromQuery(command.partition, getContext());
             if (partition_id == part->info.partition_id)
             {
                 is_partition_affected = true;

@@ -463,48 +463,11 @@ void CurrentThread::initializeQuery()
     current_thread->deleter = CurrentThread::defaultThreadDeleter;
 }
 
-void CurrentThread::attachTo(const ThreadGroupStatusPtr & thread_group)
-{
-    if (unlikely(!current_thread))
-        return;
-    current_thread->attachQuery(thread_group, true);
-    current_thread->deleter = CurrentThread::defaultThreadDeleter;
-}
-
-void CurrentThread::attachToIfDetached(const ThreadGroupStatusPtr & thread_group)
-{
-    if (unlikely(!current_thread))
-        return;
-    current_thread->attachQuery(thread_group, false);
-    current_thread->deleter = CurrentThread::defaultThreadDeleter;
-}
-
-void CurrentThread::attachQueryContext(ContextPtr query_context)
-{
-    if (unlikely(!current_thread))
-        return;
-    current_thread->attachQueryContext(query_context);
-}
-
 void CurrentThread::finalizePerformanceCounters()
 {
     if (unlikely(!current_thread))
         return;
     current_thread->finalizePerformanceCounters();
-}
-
-void CurrentThread::detachQuery()
-{
-    if (unlikely(!current_thread))
-        return;
-    current_thread->detachQuery(false);
-}
-
-void CurrentThread::detachQueryIfNotDetached()
-{
-    if (unlikely(!current_thread))
-        return;
-    current_thread->detachQuery(true);
 }
 
 

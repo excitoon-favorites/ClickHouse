@@ -2,7 +2,6 @@
 
 #if USE_AWS_S3
 
-#    include <Common/setThreadName.h>
 #    include <IO/WriteBufferFromS3.h>
 #    include <IO/WriteHelpers.h>
 #    include <Common/MemoryTracker.h>
@@ -43,7 +42,7 @@ WriteBufferFromS3::WriteBufferFromS3(
     const String & key_,
     size_t minimum_upload_part_size_,
     size_t max_single_part_upload_size_,
-    size_t thread_pool_size,
+    std::unique_ptr<IExecutor> executor_,
     std::optional<std::map<String, String>> object_metadata_,
     size_t buffer_size_)
     : BufferWithOwnMemory<WriteBuffer>(buffer_size_, nullptr, 0)
@@ -53,14 +52,9 @@ WriteBufferFromS3::WriteBufferFromS3(
     , client_ptr(std::move(client_ptr_))
     , minimum_upload_part_size(minimum_upload_part_size_)
     , max_single_part_upload_size(max_single_part_upload_size_)
+    , executor(std::move(executor_))
 {
     allocateBuffer();
-
-    LOG_TRACE(log, "thread_pool_size = {}", thread_pool_size);
-    if (thread_pool_size != 1)
-    {
-        writing_thread_pool = std::make_shared<ThreadPool>(thread_pool_size > 0 ? thread_pool_size : 1024);
-    }
 }
 
 void WriteBufferFromS3::nextImpl()
@@ -164,33 +158,16 @@ void WriteBufferFromS3::writePart()
     size_t part_number = part_tags.size() + 1;
     auto part_tag = std::make_shared<String>();
     part_tags.emplace_back(part_tag);
-    auto thread_group = CurrentThread::getGroup();
-    auto write_job = [&, part_number, part_tag, part_data, thread_group]
+    auto write_job = [&, part_number, part_tag, part_data]
     {
-        doWritePart(part_data, part_number, part_tag, thread_group);
+        doWritePart(part_data, part_number, part_tag);
     };
 
-    if (writing_thread_pool)
-        writing_thread_pool->scheduleOrThrowOnError(std::move(write_job));
-    else
-        write_job();
+    executor->scheduleOrThrowOnError(std::move(write_job));
 }
 
-void WriteBufferFromS3::doWritePart(std::shared_ptr<Aws::StringStream> part_data, size_t part_number, std::shared_ptr<String> output_tag, ThreadGroupStatusPtr thread_group)
+void WriteBufferFromS3::doWritePart(std::shared_ptr<Aws::StringStream> part_data, size_t part_number, std::shared_ptr<String> output_tag)
 {
-    if (writing_thread_pool)
-    {
-        setThreadName("QueryPipelineEx");
-
-        if (thread_group)
-            CurrentThread::attachTo(thread_group);
-    }
-
-    SCOPE_EXIT(
-            if (writing_thread_pool && thread_group)
-                CurrentThread::detachQueryIfNotDetached();
-    );
-
     LOG_DEBUG(log, "Writing part. Bucket: {}, Key: {}, Upload_id: {}, Size: {}", bucket, key, multipart_upload_id, part_data->tellp());
 
     Aws::S3::Model::UploadPartRequest req;
@@ -224,13 +201,13 @@ void WriteBufferFromS3::completeMultipartUpload()
     if (part_tags.empty())
         throw Exception("Failed to complete multipart upload. No parts have uploaded", ErrorCodes::S3_ERROR);
 
-    if (writing_thread_pool)
+    if (executor->active() > 0)
     {
         LOG_TRACE(log, "Waiting {} threads to upload data. Bucket: {}, Key: {}, Upload_id: {}, Parts: {}",
-                writing_thread_pool->active(), bucket, key, multipart_upload_id, part_tags.size());
-
-        writing_thread_pool->wait();
+                executor->active(), bucket, key, multipart_upload_id, part_tags.size());
     }
+
+    executor->wait();
 
     LOG_DEBUG(log, "Completing multipart upload. Bucket: {}, Key: {}, Upload_id: {}, Parts: {}", bucket, key, multipart_upload_id, part_tags.size());
 

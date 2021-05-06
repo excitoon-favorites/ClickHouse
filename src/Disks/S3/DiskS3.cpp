@@ -14,6 +14,7 @@
 #include <IO/ReadHelpers.h>
 #include <IO/SeekAvoidingReadBuffer.h>
 #include <IO/WriteBufferFromS3.h>
+#include <IO/WriteBufferFromS3Executor.h>
 #include <IO/WriteHelpers.h>
 #include <Common/createHardLink.h>
 #include <Common/quoteString.h>
@@ -257,7 +258,7 @@ std::unique_ptr<WriteBufferFromFileBase> DiskS3::writeFile(const String & path, 
         metadata.remote_fs_root_path + s3_path,
         settings->s3_min_upload_part_size,
         settings->s3_max_single_part_upload_size,
-        settings->multipart_write_thread_pool_size,
+        std::make_unique<WriteBufferFromS3Executor>(settings->multipart_write_thread_pool_size),
         std::move(object_metadata),
         buf_size);
 
@@ -312,7 +313,7 @@ void DiskS3::createFileOperationObject(const String & operation_name, UInt64 rev
         remote_fs_root_path + key,
         settings->s3_min_upload_part_size,
         settings->s3_max_single_part_upload_size,
-        settings->multipart_write_thread_pool_size,
+        std::make_unique<WriteBufferFromS3Executor>(settings->multipart_write_thread_pool_size),
         metadata);
 
     buffer.write('0');
@@ -391,7 +392,7 @@ void DiskS3::saveSchemaVersion(const int & version)
         remote_fs_root_path + SCHEMA_VERSION_OBJECT,
         settings->s3_min_upload_part_size,
         settings->s3_max_single_part_upload_size,
-        settings->multipart_write_thread_pool_size
+        std::make_unique<WriteBufferFromS3Executor>(settings->multipart_write_thread_pool_size)
     );
 
     writeIntText(version, buffer);

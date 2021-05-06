@@ -11,8 +11,6 @@
 #    include <common/logger_useful.h>
 #    include <common/types.h>
 
-#    include <Common/ThreadPool.h>
-
 #    include <IO/BufferWithOwnMemory.h>
 #    include <IO/WriteBuffer.h>
 
@@ -35,6 +33,16 @@ namespace DB
  */
 class WriteBufferFromS3 : public BufferWithOwnMemory<WriteBuffer>
 {
+public:
+    class IExecutor
+    {
+    public:
+        virtual void scheduleOrThrowOnError(std::function<void()> job) = 0;
+        virtual void wait() = 0;
+        virtual size_t active() const = 0;
+        virtual ~IExecutor() = 0;
+    };
+
 private:
     String bucket;
     String key;
@@ -54,7 +62,7 @@ private:
 
     Poco::Logger * log = &Poco::Logger::get("WriteBufferFromS3");
 
-    std::shared_ptr<ThreadPool> writing_thread_pool;
+    std::unique_ptr<IExecutor> executor;
 
 public:
     explicit WriteBufferFromS3(
@@ -63,7 +71,7 @@ public:
         const String & key_,
         size_t minimum_upload_part_size_,
         size_t max_single_part_upload_size_,
-        size_t thread_pool_size,
+        std::unique_ptr<IExecutor> executor_,
         std::optional<std::map<String, String>> object_metadata_ = std::nullopt,
         size_t buffer_size_ = DBMS_DEFAULT_BUFFER_SIZE);
 
@@ -79,7 +87,7 @@ private:
 
     void createMultipartUpload();
     void writePart();
-    void doWritePart(std::shared_ptr<Aws::StringStream> part_data, size_t part_number, std::shared_ptr<String> output_tag, ThreadGroupStatusPtr thread_group);
+    void doWritePart(std::shared_ptr<Aws::StringStream> part_data, size_t part_number, std::shared_ptr<String> output_tag);
     void completeMultipartUpload();
 
     void makeSinglepartUpload();

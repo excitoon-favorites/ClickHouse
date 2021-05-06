@@ -14,6 +14,7 @@
 #include <IO/ReadBufferFromS3.h>
 #include <IO/ReadHelpers.h>
 #include <IO/WriteBufferFromS3.h>
+#include <IO/WriteBufferFromS3Executor.h>
 #include <IO/WriteHelpers.h>
 
 #include <Formats/FormatFactory.h>
@@ -276,7 +277,14 @@ public:
         : sample_block(sample_block_)
     {
         write_buf = wrapWriteBufferWithCompressionMethod(
-            std::make_unique<WriteBufferFromS3>(client, bucket, key, min_upload_part_size, max_single_part_upload_size, multipart_write_thread_pool_size), compression_method, 3);
+            std::make_unique<WriteBufferFromS3>(
+                client,
+                bucket,
+                key,
+                min_upload_part_size,
+                max_single_part_upload_size,
+                std::make_unique<WriteBufferFromS3Executor>(multipart_write_thread_pool_size)
+            ), compression_method, 3);
         writer = FormatFactory::instance().getOutputStreamParallelIfPossible(format, *write_buf, sample_block, context);
     }
 

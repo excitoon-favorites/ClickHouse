@@ -40,7 +40,10 @@ public:
         virtual void scheduleOrThrowOnError(std::function<void()> job) = 0;
         virtual void wait() = 0;
         virtual size_t active() const = 0;
-        virtual ~IExecutor() = 0;
+
+        virtual ~IExecutor()
+        {
+        }
     };
 
 private:

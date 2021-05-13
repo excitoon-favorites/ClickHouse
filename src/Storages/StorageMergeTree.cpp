@@ -413,7 +413,6 @@ Int64 StorageMergeTree::startMutation(const MutationCommands & commands, String 
     return version;
 }
 
-
 void StorageMergeTree::updateMutationEntriesErrors(FutureMergedMutatedPart result_part, bool is_successful, const String & exception_message)
 {
     /// Update the information about failed parts in the system.mutations table.
@@ -900,8 +899,6 @@ std::shared_ptr<StorageMergeTree::MergeMutateSelectedEntry> StorageMergeTree::se
     if (storage_settings.get()->assign_part_uuids)
         future_part.uuid = UUIDHelpers::generateV4();
 
-    MutationCommands commands;
-
     CurrentlyMergingPartsTaggerPtr tagger;
 
     if (current_mutations_by_version.empty())
@@ -917,6 +914,7 @@ std::shared_ptr<StorageMergeTree::MergeMutateSelectedEntry> StorageMergeTree::se
         return {};
     }
 
+    bool are_some_mutations_for_some_parts_skipped = false;
     auto mutations_end_it = current_mutations_by_version.end();
     for (const auto & part : getDataPartsVector())
     {
@@ -938,6 +936,7 @@ std::shared_ptr<StorageMergeTree::MergeMutateSelectedEntry> StorageMergeTree::se
             continue;
         }
 
+        MutationCommands commands;
         size_t current_ast_elements = 0;
         for (auto it = mutations_begin_it; it != mutations_end_it; ++it)
         {
@@ -994,7 +993,7 @@ std::shared_ptr<StorageMergeTree::MergeMutateSelectedEntry> StorageMergeTree::se
             /// Shall not create a new part, but will do that later if mutation with higher version appear.
             auto block_range = std::make_pair(part->info.min_block, part->info.max_block);
             updated_version_by_block_range[block_range] = current_mutations_by_version.rbegin()->first;
-            commands.clear();
+            are_some_mutations_for_some_parts_skipped = true;
             continue;
         }
 
@@ -1008,6 +1007,13 @@ std::shared_ptr<StorageMergeTree::MergeMutateSelectedEntry> StorageMergeTree::se
 
         tagger = std::make_unique<CurrentlyMergingPartsTagger>(future_part, MergeTreeDataMergerMutator::estimateNeededDiskSpace({part}), *this, metadata_snapshot, true);
         return std::make_shared<MergeMutateSelectedEntry>(future_part, std::move(tagger), commands);
+    }
+
+    if (are_some_mutations_for_some_parts_skipped)
+    {
+        currently_processing_in_background_mutex.unlock();
+        std::lock_guard<std::mutex> mutation_wait_mutex_lock(mutation_wait_mutex);
+        mutation_wait_event.notify_all();
     }
     return {};
 }

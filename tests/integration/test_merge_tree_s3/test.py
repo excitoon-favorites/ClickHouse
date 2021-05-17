@@ -408,7 +408,7 @@ def test_freeze_unfreeze(cluster):
 
 
 def test_s3_disk_apply_new_settings(cluster):
-    create_table(cluster, "s3_test")
+    create_table(cluster, "s3_test", "s3")
     node = cluster.instances["node"]
 
     def get_s3_requests():
@@ -433,7 +433,7 @@ def test_s3_disk_apply_new_settings(cluster):
 
 
 def test_s3_disk_restart_during_load(cluster):
-    create_table(cluster, "s3_test")
+    create_table(cluster, "s3_test", "s3")
 
     node = cluster.instances["node"]
 

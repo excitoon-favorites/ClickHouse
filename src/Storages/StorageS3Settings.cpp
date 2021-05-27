@@ -66,7 +66,7 @@ void StorageS3Settings::loadFromConfig(const String & config_elem, const Poco::U
                     std::move(headers),
                     use_environment_credentials,
                     use_insecure_imds_request,
-		    multipart_write_thread_pool_size
+                    multipart_write_thread_pool_size
                 });
         }
     }
